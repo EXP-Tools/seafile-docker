@@ -21,6 +21,7 @@ services:
         timeout: 20s
         retries: 10
 
+
   memcached:
     image: memcached:1.5.6
     container_name: SEAFILE_CACHE
@@ -32,6 +33,7 @@ services:
       vpn:
         ipv4_address: 172.168.29.3
           
+        
   seafile:
     image: seafileltd/seafile-mc:latest
     hostname: seafile
