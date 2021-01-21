@@ -1,45 +1,61 @@
+# How to use :
+# login_user=admin login_pass=admin123 db_pass=123456 uid=1000 gid=1000 docker-compose up -d
+# docker-compose down
+# --------------------------------------------------------------------------------
+
 version: '2.0'
 services:
-  db:
+  mariadb:
     image: mariadb:10.1
     container_name: seafile-mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=db_dev  # Requested, set the root's password of MySQL service.
+      - MYSQL_ROOT_PASSWORD=${db_pass}  # Requested, set the root's password of MySQL service.
       - MYSQL_LOG_CONSOLE=true
     volumes:
-      - /opt/seafile-mysql/db:/var/lib/mysql  # Requested, specifies the path to MySQL data persistent store.
-    networks:
-      - seafile-net
+      - ./mariadb/data:/var/lib/mysql  # Requested, specifies the path to MySQL data persistent store.
+    networks: 
+      vpn:
+        ipv4_address: 172.168.29.2
 
   memcached:
     image: memcached:1.5.6
     container_name: seafile-memcached
     entrypoint: memcached -m 256
-    networks:
-      - seafile-net
+    networks: 
+      vpn:
+        ipv4_address: 172.168.29.3
           
   seafile:
     image: seafileltd/seafile-mc:latest
+    hostname: seafile
     container_name: seafile
     ports:
-      - "80:80"  # not to modify else can not download
-#      - "443:443"  # If https is enabled, cancel the comment.
+      - "80:80"     # not to modify else can not download
+#     - "443:443"   # If https is enabled, cancel the comment.
     volumes:
-      - /opt/seafile-data:/shared   # Requested, specifies the path to Seafile data persistent store.
+      - ./seafile/data:/shared   # Requested, specifies the path to Seafile data persistent store.
     environment:
-      - DB_HOST=db
-      - DB_ROOT_PASSWD=db_dev  # Requested, the value shuold be root's password of MySQL service.
-#      - TIME_ZONE=Asia/Shanghai # Optional, default is UTC. Should be uncomment and set to your local time zone.
-      - SEAFILE_ADMIN_EMAIL=admin # Specifies Seafile admin user, default is 'me@example.com'.
-      - SEAFILE_ADMIN_PASSWORD=admin123     # Specifies Seafile admin password, default is 'asecret'.
-      - SEAFILE_SERVER_LETSENCRYPT=false   # Whether use letsencrypt to generate cert.
-      - SEAFILE_SERVER_HOSTNAME=1.2.3.4 # Specifies your host name.
+      - DB_HOST=mariadb
+      - DB_ROOT_PASSWD=${db_pass}            # Requested, the value shuold be root's password of MySQL service.
+      - TIME_ZONE=Asia/Shanghai              # Optional, default is UTC. Should be uncomment and set to your local time zone.
+      - SEAFILE_ADMIN_EMAIL=${login_user}    # Specifies Seafile admin user, default is 'me@example.com'.
+      - SEAFILE_ADMIN_PASSWORD=${login_pass} # Specifies Seafile admin password, default is 'asecret'.
+      - SEAFILE_SERVER_LETSENCRYPT=false     # Whether use letsencrypt to generate cert.
+      - SEAFILE_SERVER_HOSTNAME=seafile      # Specifies your host name.
     depends_on:
-      - db
+      - mariadb
       - memcached
-    networks:
-      - seafile-net
+    networks: 
+      vpn:
+        ipv4_address: 172.168.29.4
+
 
 networks:
-  seafile-net:
-
+  vpn:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet:  172.168.29.0/24
+          gateway: 172.168.29.1
+    
