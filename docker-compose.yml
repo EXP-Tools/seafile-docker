@@ -3,24 +3,31 @@
 # docker-compose down
 # --------------------------------------------------------------------------------
 
-version: '2.0'
+version: '2.1'
 services:
   mariadb:
     image: mariadb:10.1
-    container_name: seafile-mysql
+    container_name: SEAFILE_DB
     environment:
-      - MYSQL_ROOT_PASSWORD=${db_pass}  # Requested, set the root's password of MySQL service.
+      - MYSQL_ROOT_PASSWORD=${db_pass}       # Requested, set the root's password of MySQL service.
       - MYSQL_LOG_CONSOLE=true
     volumes:
-      - ./mariadb/data:/var/lib/mysql  # Requested, specifies the path to MySQL data persistent store.
+      - ./mariadb/data:/var/lib/mysql        # Requested, specifies the path to MySQL data persistent store.
     networks: 
       vpn:
         ipv4_address: 172.168.29.2
+    healthcheck:
+        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+        timeout: 20s
+        retries: 10
 
   memcached:
     image: memcached:1.5.6
-    container_name: seafile-memcached
+    container_name: SEAFILE_CACHE
     entrypoint: memcached -m 256
+    depends_on:
+      mariadb:
+        condition: service_healthy
     networks: 
       vpn:
         ipv4_address: 172.168.29.3
@@ -28,12 +35,12 @@ services:
   seafile:
     image: seafileltd/seafile-mc:latest
     hostname: seafile
-    container_name: seafile
+    container_name: SEAFILE_DOCKER
     ports:
       - "80:80"     # not to modify else can not download
 #     - "443:443"   # If https is enabled, cancel the comment.
     volumes:
-      - ./seafile/data:/shared   # Requested, specifies the path to Seafile data persistent store.
+      - ./seafile/data:/shared               # Requested, specifies the path to Seafile data persistent store.
     environment:
       - DB_HOST=mariadb
       - DB_ROOT_PASSWD=${db_pass}            # Requested, the value shuold be root's password of MySQL service.
@@ -41,9 +48,8 @@ services:
       - SEAFILE_ADMIN_EMAIL=${login_user}    # Specifies Seafile admin user, default is 'me@example.com'.
       - SEAFILE_ADMIN_PASSWORD=${login_pass} # Specifies Seafile admin password, default is 'asecret'.
       - SEAFILE_SERVER_LETSENCRYPT=false     # Whether use letsencrypt to generate cert.
-      - SEAFILE_SERVER_HOSTNAME=seafile      # Specifies your host name.
+      - SEAFILE_SERVER_HOSTNAME=172.168.29.4 # Specifies your host name.
     depends_on:
-      - mariadb
       - memcached
     networks: 
       vpn:
